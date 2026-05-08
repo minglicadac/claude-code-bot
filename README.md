@@ -14,10 +14,10 @@ Everything Claude needs — auth, MCP servers, ADO PAT, schedule — is configur
 
    Required values:
    ```
-   AZURE_DEVOPS_ORG=cadac-ipaas
-   AZURE_DEVOPS_PROJECT=Platform
-   AZURE_DEVOPS_USER_EMAIL=you@cadac.com
-   AZURE_DEVOPS_EXT_PAT=<personal access token, work-items read scope is enough>
+   AZURE_DEVOPS_ORG=org-name
+   AZURE_DEVOPS_PROJECT=project-name
+   AZURE_DEVOPS_USER_EMAIL=you@you.com
+   AZURE_DEVOPS_EXT_PAT=<PAT for the above user>
 
    ANTHROPIC_BASE_URL=https://ollama.com/
    ANTHROPIC_AUTH_TOKEN=<token for the Anthropic-compatible endpoint>
