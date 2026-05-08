@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__azure-devops",
+      "mcp__postgres",
+      "Bash(psql:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}

@@ -1,0 +1,2 @@
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 * * * * robot /usr/local/bin/sync-bugs.sh >> /var/log/claude-robot.log 2>&1

@@ -1,0 +1,46 @@
+services:
+  claude-robot:
+    build: .
+    user: root
+    working_dir: /workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AZURE_DEVOPS_ORG: ${AZURE_DEVOPS_ORG}
+      AZURE_DEVOPS_PROJECT: ${AZURE_DEVOPS_PROJECT}
+      AZURE_DEVOPS_USER_EMAIL: ${AZURE_DEVOPS_USER_EMAIL}
+      AZURE_DEVOPS_EXT_PAT: ${AZURE_DEVOPS_EXT_PAT}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL}
+      ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN}
+      ANTHROPIC_DEFAULT_OPUS_MODEL: ${ANTHROPIC_DEFAULT_OPUS_MODEL}
+      ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL}
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: ${ANTHROPIC_DEFAULT_HAIKU_MODEL}
+      DATABASE_URL: postgresql://robot:robot@postgres:5432/bugs
+    volumes:
+      - ./config/settings.json:/home/robot/.claude/settings.json
+      - ./config/.mcp.json:/workspace/.mcp.json
+      - claude_state:/home/robot/.claude/projects
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: robot
+      POSTGRES_PASSWORD: robot
+      POSTGRES_DB: bugs
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U robot -d bugs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  claude_state:

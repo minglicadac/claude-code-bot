@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "azure-devops": {
+      "command": "npx",
+      "args": ["-y", "@azure-devops/mcp", "${AZURE_DEVOPS_ORG}", "--authentication", "pat"],
+      "env": {
+        "PERSONAL_ACCESS_TOKEN": "${PERSONAL_ACCESS_TOKEN}"
+      }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@henkey/postgres-mcp-server", "--connection-string", "${DATABASE_URL}"]
+    }
+  }
+}
