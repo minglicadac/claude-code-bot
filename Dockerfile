@@ -23,11 +23,16 @@ COPY cron/claude-robot /etc/cron.d/claude-robot
 RUN chmod 0644 /etc/cron.d/claude-robot
 
 COPY scripts/ /usr/local/bin/
-RUN chmod 0755 /usr/local/bin/sync-bugs.sh /usr/local/bin/claude.sh /usr/local/bin/entrypoint.sh
+RUN chmod 0755 /usr/local/bin/sync-bugs.sh \
+               /usr/local/bin/claude.sh \
+               /usr/local/bin/entrypoint.sh \
+    && chmod 0644 /usr/local/bin/webhook-server.js
 
 RUN touch /var/log/claude-robot.log && chown robot:robot /var/log/claude-robot.log
 
 WORKDIR /workspace
+
+EXPOSE 8080
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/usr/local/bin/entrypoint.sh"]

@@ -2,6 +2,8 @@
 
 A Dockerized Claude Code that runs headlessly on a cron, pulls the 5 most recently changed bugs from an Azure DevOps project via the official `@azure-devops/mcp` server, and upserts them into a bundled PostgreSQL via `@henkey/postgres-mcp-server`.
 
+Also runs a **webhook server** on port 8080 that receives Azure DevOps service hook events (work item comments, PRs, builds) via a **Cloudflare Tunnel** and dispatches them to Claude Code for real-time processing.
+
 Everything Claude needs — auth, MCP servers, ADO PAT, schedule — is configured through environment variables and host-mounted config files.
 
 
@@ -33,7 +35,7 @@ Everything Claude needs — auth, MCP servers, ADO PAT, schedule — is configur
    docker compose up -d --build
    ```
 
-   Postgres comes up first; `claude-robot` waits for the healthcheck before starting cron.
+   Postgres comes up first; `claude-robot` waits for the healthcheck before starting cron + webhook server. `cloudflared` connects to Cloudflare if a tunnel token is provided.
 
 ## Smoke test
 
@@ -58,6 +60,13 @@ docker compose exec claude-robot /usr/local/bin/claude.sh -p 'insert a test row 
 docker compose exec postgres psql -U robot -d bugs -c 'SELECT * FROM bugs;'
 ```
 
+Verify the webhook server is running:
+
+```sh
+docker compose exec claude-robot curl -s http://localhost:8080/health
+# Expected: {"status":"ok","uptime":...}
+```
+
 ## Run the sync manually
 
 Without waiting for the top of the hour:
@@ -73,6 +82,75 @@ Inspect the result:
 ```sh
 docker compose exec postgres psql -U robot -d bugs -c \
   'SELECT id, title, state, changed_date FROM bugs ORDER BY synced_at DESC LIMIT 5;'
+```
+
+## Cloudflare Tunnel + Webhook Setup
+
+The robot can receive real-time Azure DevOps events via service hook webhooks. Since ADO requires a public HTTPS URL, we use a **Cloudflare Tunnel** (free, static URL).
+
+### Step 1: Create the tunnel
+
+```sh
+# Install cloudflared on your host
+winget install Cloudflare.cloudflared    # Windows
+# brew install cloudflared               # macOS
+
+# Run the setup script (interactive)
+bash scripts/setup-tunnel.sh --tunnel
+```
+
+This will:
+- Login to Cloudflare (opens browser)
+- Create a named tunnel called `claude-robot` (gives you a permanent UUID)
+- Route a hostname like `robot.yourdomain.com` to the tunnel
+- Write a config file to `~/.cloudflared/config.yml`
+
+### Step 2: Get the tunnel token for Docker
+
+1. Go to https://one.dash.cloudflare.com/
+2. **Networks → Tunnels → claude-robot → Configure**
+3. Click **Install connector** and copy the token from the docker command
+4. Add it to your `.env`:
+   ```
+   CLOUDFLARE_TUNNEL_TOKEN=<paste-token-here>
+   ```
+
+### Step 3: Configure the Cloudflare tunnel public hostname
+
+In the Cloudflare dashboard, under your tunnel settings, add a **public hostname**:
+
+| Field | Value |
+|-------|-------|
+| Subdomain | `robot` (or whatever you chose) |
+| Domain | your domain in Cloudflare |
+| Type | HTTP |
+| URL | `claude-robot:8080` |
+
+### Step 4: Create ADO service hook subscriptions
+
+```sh
+bash scripts/setup-tunnel.sh --webhook
+```
+
+This will create webhook subscriptions for these events:
+- Work item commented on (@mentions)
+- Work item updated
+- Work item created
+- Pull request created/updated
+- Build completed
+
+You'll be prompted for your webhook URL (e.g., `https://robot.yourdomain.com/webhook`).
+
+### Step 5: Rebuild and test
+
+```sh
+docker compose up -d --build
+
+# Test the health endpoint
+curl https://robot.yourdomain.com/health
+
+# @mention yourself in an ADO work item comment, then check the logs:
+docker compose exec claude-robot tail -f /var/log/claude-robot.log
 ```
 
 ## Watching the cron job
@@ -99,3 +177,4 @@ docker compose restart claude-robot
 - **What gets synced** — edit the prompt in `scripts/sync-bugs.sh` and rebuild.
 - **DB schema** — edit `db/init.sql`. Note: it only runs on a fresh Postgres volume. To re-init: `docker compose down -v && docker compose up -d --build`.
 - **Allowed tools / permissions** — edit `config/settings.json`, then restart.
+- **Webhook event handling** — edit the `buildPrompt()` function in `scripts/webhook-server.js`.

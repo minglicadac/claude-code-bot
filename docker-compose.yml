@@ -17,6 +17,7 @@ services:
       ANTHROPIC_DEFAULT_SONNET_MODEL: ${ANTHROPIC_DEFAULT_SONNET_MODEL}
       ANTHROPIC_DEFAULT_HAIKU_MODEL: ${ANTHROPIC_DEFAULT_HAIKU_MODEL}
       DATABASE_URL: postgresql://robot:robot@postgres:5432/bugs
+      WEBHOOK_PORT: "8080"
     volumes:
       - ./config/settings.json:/home/robot/.claude/settings.json
       - ./config/.mcp.json:/workspace/.mcp.json
@@ -39,6 +40,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - claude-robot
     restart: unless-stopped
 
 volumes:
